@@ -1,0 +1,14 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# Node / React
+node_modules/
+dist/
+.env.local
+
+# Docker & OS
+.DS_Store
+Thumbs.db
