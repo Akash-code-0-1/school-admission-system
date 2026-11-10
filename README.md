@@ -6,6 +6,30 @@ Built for the **Assistant Software Engineer Recruitment** assessment at **Onnoro
 
 ---
 
+## 📸 Screenshots & UI Preview
+
+### 1. Class List & Real-time Seat Availability
+Live dashboard showing real-time seat statistics (Total, Available, Held, Confirmed), 3-second auto-polling, and the 17-digit student birth registration input at the top.
+
+![Class List & Live Seats](https://github.com/Akash-code-0-1/school-admission-system/blob/main/images/home.png?raw=true)
+
+---
+
+### 2. My Applications & Live Expiration Countdown
+Shows the applicant's active hold, a live countdown timer until expiration, the "ভর্তি ফি দিন" (Confirm Admission) button, and the "বাতিল" (Cancel) button.
+
+![My Applications & Live Countdown](https://github.com/Akash-code-0-1/school-admission-system/blob/main/images/applications.png?raw=true)
+
+---
+
+### 3. School Admin - Class & Shift Creation
+Admin panel to define class names, shifts, and total seat capacities.
+
+![School Admin Panel](https://github.com/Akash-code-0-1/school-admission-system/blob/main/images/admin.png?raw=true)
+
+---
+
+
 ## Tech Stack
 
 - **Backend:** C# (.NET 8 Web API), Entity Framework Core, Npgsql
@@ -99,7 +123,7 @@ All database data persists across restarts via the `pgdata` Docker volume.
 
 ---
 
-## Multi-Process Concurrency Setup (Bonus §1.6)
+## Multi-Process Concurrency Setup
 
 ### Why Two Backend Containers Are Running (:8080 & :8081)
 
@@ -155,7 +179,7 @@ dotnet test
 - **Rule #3 Validation:** Ensures a student cannot hold or confirm more than one seat in the same class at the same time.
 - **Concurrency Test (Rule #1 & Bonus §1.6):** Fires 20 simultaneous hold requests to a class with only 5 available seats. Verifies that exactly 5 succeed (`201 Created`) and the remaining 15 are rejected (`409 Conflict`) without exceeding capacity.
 
-### 2. Frontend Tests (Vitest & Testing Library - Bonus §1.6)
+### 2. Frontend Tests (Vitest & Testing Library)
 
 Verifies 17-digit birth registration input validation, localStorage persistence, real-time seat statistics rendering, and tab navigation.
 
