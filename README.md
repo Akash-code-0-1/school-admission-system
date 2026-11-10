@@ -15,43 +15,153 @@ Built for the **Assistant Software Engineer Recruitment** assessment at **Onnoro
 
 ---
 
+## Project Structure
+
+```text
+school-admission-system/
+├── backend/
+│   ├── SchoolAdmission.Api/
+│   │   ├── Controllers/
+│   │   │   ├── ClassesController.cs
+│   │   │   ├── HoldsController.cs
+│   │   │   └── MeController.cs
+│   │   ├── Data/
+│   │   │   └── AppDbContext.cs
+│   │   ├── DTOs/
+│   │   │   └── Contracts.cs
+│   │   ├── Middleware/
+│   │   │   └── GlobalExceptionMiddleware.cs
+│   │   ├── Models/
+│   │   │   ├── ClassEntity.cs
+│   │   │   └── HoldEntity.cs
+│   │   ├── appsettings.json
+│   │   ├── Program.cs
+│   │   └── SchoolAdmission.Api.csproj
+│   │
+│   ├── SchoolAdmission.Tests/
+│   │   ├── AdmissionTests.cs
+│   │   └── SchoolAdmission.Tests.csproj
+│   │
+│   ├── Dockerfile
+│   └── SchoolAdmission.sln
+│
+├── frontend/
+│   ├── src/
+│   │   ├── api.js
+│   │   ├── App.jsx
+│   │   ├── App.test.jsx
+│   │   ├── index.css
+│   │   ├── main.jsx
+│   │   └── setupTests.js
+│   ├── index.html
+│   ├── package.json
+│   ├── nginx.conf
+│   ├── Dockerfile
+│   ├── tailwind.config.js
+│   └── vite.config.js
+│
+├── docker-compose.yml
+├── README.md
+├── AI_USAGE.md
+├── ASSUMPTIONS.md
+├── TaskworkingProf.md
+└── SchoolAdmission.sln
+```
+
+---
+
 ## Running the Application with Docker
 
-To spin up PostgreSQL, the .NET backend API, and the React frontend in one go, run the following command from the repository root:
+To spin up PostgreSQL, both backend processes, and the React frontend in one go, run the following command from the repository root:
 
 ```bash
 docker compose up --build
 ```
 
-### Application URLs:
+### Application URLs
 
-- **Frontend UI:** [**http://localhost:3000**](http://localhost:3000)
-- **Backend API:** [**http://localhost:8080**](http://localhost:8080)
-- **Swagger API Docs:** [**http://localhost:8080/swagger**](http://localhost:8080/swagger)
+| Service | URL |
+|---|---|
+| Frontend UI | http://localhost:3000 |
+| Backend Instance 1 (Primary) | http://localhost:8080 |
+| Backend Instance 2 (Bonus Multi-Process) | http://localhost:8081 |
+| Swagger API Docs (Instance 1) | http://localhost:8080/swagger |
+| Swagger API Docs (Instance 2) | http://localhost:8081/swagger |
+| Health Check Endpoint | http://localhost:8080/ |
 
-To stop the containers:
+### Stop the Containers
 
 ```bash
 docker compose down
 ```
 
-*(All database data persists across restarts via the pgdata Docker volume).*
+All database data persists across restarts via the `pgdata` Docker volume.
+
+---
+
+## Multi-Process Concurrency Setup (Bonus §1.6)
+
+### Why Two Backend Containers Are Running (:8080 & :8081)
+
+The assignment bonus requirement specifies:
+
+> "একই database ব্যবহার করে backend-এর দুটো process আলাদা port-এ একসাথে চললেও held + confirmed সংখ্যা totalSeats-এর বেশি হবে না।"
+
+To directly satisfy and prove this requirement in the runtime environment, `docker-compose.yml` spins up two separate backend instances:
+
+- `school_backend_1` listening on port `8080`
+- `school_backend_2` listening on port `8081`
+
+Both instances run as completely isolated operating system processes in separate containers, sharing the exact same PostgreSQL database.
+
+### Engineering Reasoning
+
+Application-level locks (such as C# `lock` or `SemaphoreSlim`) only work within a single process memory space. If traffic is split between port 8080 and 8081, in-memory locks fail completely, causing race conditions and oversold seats.
+
+To make the system truly distributed and multi-process safe, concurrency control is handled entirely by PostgreSQL row-level pessimistic locking (`SELECT ... FOR UPDATE`) inside atomic transactions.
+
+When requests hit port 8080 and port 8081 simultaneously for the same class, PostgreSQL serializes the execution at the database row level. Even under parallel load across both instances, `held + confirmed` will never exceed `totalSeats`.
+
+### Verifying Multi-Process Safety
+
+You can verify this live by sending simultaneous hold requests to both ports for the same class:
+
+```bash
+# Request to Process 1 (Port 8080)
+curl -i -X POST http://localhost:8080/classes/<classId>/holds -H "X-Student-Id: 20152691234567801"
+
+# Request to Process 2 (Port 8081)
+curl -i -X POST http://localhost:8081/classes/<classId>/holds -H "X-Student-Id: 20152691234567802"
+```
 
 ---
 
 ## Running Automated Tests
 
-The test suite includes integration tests for normal admission flow, single active application constraint validation, and a concurrency test with row-level locking.
+### 1. Backend Tests (xUnit)
 
-To run the backend tests locally, ensure PostgreSQL is running (e.g. via docker compose up -d db), then run:
+The backend test suite includes integration tests for normal admission flow, single active application constraint validation, and a concurrency test with row-level locking.
+
+Ensure PostgreSQL is running (e.g. via `docker compose up -d db`), then run:
 
 ```bash
 cd backend
 dotnet test
 ```
 
-### What the Tests Cover:
+### What the Backend Tests Cover
 
-1. **Admission Flow:** Class creation, holding a seat, and confirming admission fee.
-2. **Rule #3 Validation:** Ensures a student cannot hold or confirm more than one seat in the same class at the same time.
-3. **Concurrency Test (Rule #1 & Bonus):** Sends 20 simultaneous hold requests to a class with only 5 available seats. Verifies that exactly 5 succeed (201 Created) and the remaining 15 are rejected (409 Conflict) without exceeding capacity.
+- **Admission Flow:** Class creation, holding a seat, and confirming admission fee.
+- **Rule #3 Validation:** Ensures a student cannot hold or confirm more than one seat in the same class at the same time.
+- **Concurrency Test (Rule #1 & Bonus §1.6):** Fires 20 simultaneous hold requests to a class with only 5 available seats. Verifies that exactly 5 succeed (`201 Created`) and the remaining 15 are rejected (`409 Conflict`) without exceeding capacity.
+
+### 2. Frontend Tests (Vitest & Testing Library - Bonus §1.6)
+
+Verifies 17-digit birth registration input validation, localStorage persistence, real-time seat statistics rendering, and tab navigation.
+
+Run from the frontend directory:
+
+```bash
+cd frontend
+npm test
+```

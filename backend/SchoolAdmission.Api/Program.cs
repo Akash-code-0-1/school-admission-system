@@ -48,6 +48,16 @@ app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
 
+// 🟢 Root Endpoint as Health Check
+app.MapGet("/", () => Results.Ok(new
+{
+    status = "Healthy",
+    service = "School Admission API",
+    version = "1.0.0",
+    docs = "/swagger",
+    timestamp = DateTime.UtcNow
+}));
+
 app.MapControllers();
 
 app.Run();
