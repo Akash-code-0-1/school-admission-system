@@ -17,5 +17,21 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: school_backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=school_admission;Username=postgres;Password=postgrespassword
+      - HOLD_DURATION_SECONDS=600
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "8080:8080"
+
 volumes:
   pgdata:
